@@ -21,9 +21,17 @@
 
                 <!-- Language picker -->
                 <div class="language-picker">
-                    <a href="/Introduction">English</a>
-                    /
-                    <a href="/fr/Introduction">Français</a>
+                <?php
+                $language_pickers = array();
+                foreach($params['languages'] as $lang => $lang_name) {
+                    if ($lang === $params['language']) {
+                        $language_pickers[] = '<a href="/Introduction">' . $lang_name . '</a>';
+                    } else {
+                        $language_pickers[] = '<a href="/' . $lang . '/Introduction">' . $lang_name . '</a>';
+                    }
+                }
+                echo implode(' / ', $language_pickers);
+                ?>
                 </div>
 
                 <!-- Navigation -->
