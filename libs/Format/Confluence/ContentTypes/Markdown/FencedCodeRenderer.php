@@ -37,7 +37,7 @@ class FencedCodeRenderer extends CodeRenderer
 
     /**
      * @param AbstractBlock $block
-     * @param HtmlRendererInterface $htmlRenderer
+     * @param ElementRendererInterface $htmlRenderer
      * @param bool $inTightList
      *
      * @return HtmlElement|string
@@ -48,18 +48,18 @@ class FencedCodeRenderer extends CodeRenderer
             throw new \InvalidArgumentException('Incompatible block type: ' . get_class($block));
         }
 
-        $language = $this->getLanguage($block->getInfoWords(), $htmlRenderer);
+        $language = $this->getLanguage($block->getInfoWords());
 
         return $this->getHTMLElement($block->getStringContent(), $language);
     }
 
-    public function getLanguage($infoWords, ElementRendererInterface $htmlRenderer)
+    public function getLanguage($infoWords)
     {
         if (count($infoWords) === 0 || strlen($infoWords[0]) === 0) {
             return false;
         }
 
-        $language = Xml::escape($infoWords[0], true);
+        $language = Xml::escape($infoWords[0]);
 
         if (array_key_exists($language, $this->known_conversions)) {
             $language = $this->known_conversions[$language];

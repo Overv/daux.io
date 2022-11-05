@@ -4,9 +4,26 @@ use League\CommonMark\ElementRendererInterface;
 use League\CommonMark\HtmlElement;
 use League\CommonMark\Inline\Element\AbstractInline;
 use League\CommonMark\Inline\Element\Image;
+use League\CommonMark\Inline\Renderer\InlineRendererInterface;
+use League\CommonMark\Util\ConfigurationAwareInterface;
+use League\CommonMark\Util\ConfigurationInterface;
 
-class ImageRenderer extends \League\CommonMark\Inline\Renderer\ImageRenderer
+class ImageRenderer implements InlineRendererInterface, ConfigurationAwareInterface
 {
+    /**
+     * @var ConfigurationInterface
+     */
+    protected $config;
+
+    /**
+     * @var \League\CommonMark\Inline\Renderer\ImageRenderer
+     */
+    protected $parent;
+
+    public function __construct() {
+        $this->parent = new \League\CommonMark\Inline\Renderer\ImageRenderer();
+    }
+
     /**
      * @param Image                    $inline
      * @param ElementRendererInterface $htmlRenderer
@@ -28,6 +45,14 @@ class ImageRenderer extends \League\CommonMark\Inline\Renderer\ImageRenderer
             );
         }
 
-        return parent::render($inline, $htmlRenderer);
+        return $this->parent->render($inline, $htmlRenderer);
+    }
+
+    /**
+     * @param ConfigurationInterface $configuration
+     */
+    public function setConfiguration(ConfigurationInterface $configuration)
+    {
+        $this->parent->setConfiguration($configuration);
     }
 }

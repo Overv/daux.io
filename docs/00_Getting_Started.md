@@ -47,7 +47,6 @@ This is a list of sites using Daux.io:
 	* [DoctrineWatcher](https://dsentker.github.io/WatcherDocumentation/)
 	* [DrupalGap](http://docs.drupalgap.org/8/)
     * [ICADMIN: An admin panel powered by CodeIgniter.](http://istocode.com/shared/ic-admin/)
-    * [Invade & Annex 3 - An Arma 3 Co-operative Mission](http://ia3.ahoyworld.co.uk/)
     * [Munee: Standalone PHP 5.3 Asset Optimisation & Manipulation](http://mun.ee)
     * [Nuntius: A PHP framework for bots](https://roysegall.github.io/nuntius-bot/)
 
@@ -146,9 +145,9 @@ Now that you got the basics, you can also [see what you can configure](05_Config
 
 ## PHP Requirements
 
-Daux.io is compatible with PHP 5.6 and up.
+Daux.io is compatible with PHP 7.2.0 and up.
 
-The reason is because some dependencies we have do not support php 5.5 anymore.
+The reason is because some dependencies we have (mainly Symfony and Guzzle) do not support PHP 5.6 anymore.
 
 ### Extensions
 

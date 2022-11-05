@@ -4,68 +4,30 @@ use League\CommonMark\ElementRendererInterface;
 use League\CommonMark\HtmlElement;
 use League\CommonMark\Inline\Element\AbstractInline;
 use League\CommonMark\Inline\Element\Link;
+use League\CommonMark\Inline\Renderer\InlineRendererInterface;
+use League\CommonMark\Util\ConfigurationAwareInterface;
+use League\CommonMark\Util\ConfigurationInterface;
 use Todaymade\Daux\Config;
 use Todaymade\Daux\DauxHelper;
 use Todaymade\Daux\Exception\LinkNotFoundException;
 use Todaymade\Daux\Tree\Entry;
 
-class LinkRenderer extends \League\CommonMark\Inline\Renderer\LinkRenderer
+class LinkRenderer implements InlineRendererInterface, ConfigurationAwareInterface
 {
     /**
      * @var Config
      */
     protected $daux;
 
+    /**
+     * @var \League\CommonMark\Inline\Renderer\LinkRenderer
+     */
+    protected $parent;
+
     public function __construct($daux)
     {
         $this->daux = $daux;
-    }
-
-    /**
-     * @param string $url
-     * @return Entry
-     * @throws LinkNotFoundException
-     */
-    protected function resolveInternalFile($url)
-    {
-        $triedAbsolute = false;
-
-        // Legacy absolute paths could start with
-        // "!" In this case we will try to find
-        // the file starting at the root
-        if ($url[0] == '!' || $url[0] == '/') {
-            $url = ltrim($url, '!/');
-
-            if ($file = DauxHelper::getFile($this->daux['tree'], $url)) {
-                return $file;
-            }
-
-            $triedAbsolute = true;
-        }
-
-        // Seems it's not an absolute path or not found,
-        // so we'll continue with the current folder
-        if ($file = DauxHelper::getFile($this->daux->getCurrentPage()->getParent(), $url)) {
-            return $file;
-        }
-
-        // If we didn't already try it, we'll
-        // do a pass starting at the root
-        if (!$triedAbsolute && $file = DauxHelper::getFile($this->daux['tree'], $url)) {
-            return $file;
-        }
-
-        throw new LinkNotFoundException("Could not locate file '$url'");
-    }
-
-    protected function isValidUrl($url)
-    {
-        return !empty($url) && $url[0] != '#';
-    }
-
-    protected function isExternalUrl($url)
-    {
-        return preg_match('#^(?:[a-z]+:)?//|^mailto:#', $url);
+        $this->parent = new \League\CommonMark\Inline\Renderer\LinkRenderer();
     }
 
     /**
@@ -76,29 +38,22 @@ class LinkRenderer extends \League\CommonMark\Inline\Renderer\LinkRenderer
      */
     public function render(AbstractInline $inline, ElementRendererInterface $htmlRenderer)
     {
-        // This can't be in the method type as
-        // the method is an abstract and should
-        // have the same interface
-        if (!$inline instanceof Link) {
-            throw new \RuntimeException(
-                'Wrong type passed to ' . __CLASS__ . '::' . __METHOD__ .
-                " the expected type was 'League\\CommonMark\\Inline\\Element\\Link' but '" .
-                get_class($inline) . "' was provided"
-            );
+        if (!($inline instanceof Link)) {
+            throw new \InvalidArgumentException('Incompatible inline type: ' . \get_class($inline));
         }
 
-        $element = parent::render($inline, $htmlRenderer);
+        $element = $this->parent->render($inline, $htmlRenderer);
 
         $url = $inline->getUrl();
 
         // empty urls and anchors should
         // not go through the url resolver
-        if (!$this->isValidUrl($url)) {
+        if (!DauxHelper::isValidUrl($url)) {
             return $element;
         }
 
         // Absolute urls, shouldn't either
-        if ($this->isExternalUrl($url)) {
+        if (DauxHelper::isExternalUrl($url)) {
             $element->setAttribute('class', 'Link--external');
 
             return $element;
@@ -112,16 +67,13 @@ class LinkRenderer extends \League\CommonMark\Inline\Renderer\LinkRenderer
         $foundWithHash = false;
 
         try {
-            $file = $this->resolveInternalFile($url);
+            $file = DauxHelper::resolveInternalFile($this->daux, $url);
             $url = DauxHelper::getRelativePath($this->daux->getCurrentPage()->getUrl(), $file->getUrl());
         } catch (LinkNotFoundException $e) {
-
-            
-
             // For some reason, the filename could contain a # and thus the link needs to resolve to that.
             try {
-                if (strlen($urlAndHash[1]) > 0) {
-                    $file = $this->resolveInternalFile($url . '#' . $urlAndHash[1]);
+                if (strlen($urlAndHash[1] ?? "") > 0) {
+                    $file = DauxHelper::resolveInternalFile($this->daux, $url . '#' . $urlAndHash[1]);
                     $url = DauxHelper::getRelativePath($this->daux->getCurrentPage()->getUrl(), $file->getUrl());
                     $foundWithHash = true;
                 }
@@ -147,5 +99,13 @@ class LinkRenderer extends \League\CommonMark\Inline\Renderer\LinkRenderer
         $element->setAttribute('href', $url);
 
         return $element;
+    }
+
+    /**
+     * @param ConfigurationInterface $configuration
+     */
+    public function setConfiguration(ConfigurationInterface $configuration)
+    {
+        $this->parent->setConfiguration($configuration);
     }
 }

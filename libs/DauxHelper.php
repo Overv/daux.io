@@ -1,7 +1,9 @@
 <?php namespace Todaymade\Daux;
 
+use Todaymade\Daux\Exception\LinkNotFoundException;
 use Todaymade\Daux\Tree\Builder;
 use Todaymade\Daux\Tree\Directory;
+use Todaymade\Daux\Tree\Entry;
 
 class DauxHelper
 {
@@ -14,52 +16,27 @@ class DauxHelper
     public static function rebaseConfiguration(Config $config, $base_url)
     {
         // Avoid changing the url if it is already correct
-        if ($config['base_url'] == $base_url && !empty($config['theme'])) {
+        if ($config->getBaseUrl() == $base_url && !empty($config->getTheme())) {
             return;
         }
 
         // Change base url for all links on the pages
-        $config['base_url'] = $config['base_page'] = $base_url;
+        $config['base_url'] = $base_url;
         $config['theme'] = static::getTheme($config, $base_url);
-        $config['image'] = str_replace('<base_url>', $base_url, $config['image']);
-    }
-
-    protected static function resolveVariant(Config $params)
-    {
-        if (array_key_exists('theme-variant', $params['html'])) {
-            return;
-        }
-
-        if (is_dir(realpath(($params->getThemesPath() . DIRECTORY_SEPARATOR . $params['html']['theme'])))) {
-            return;
-        }
-
-        $theme = explode('-', $params['html']['theme']);
-
-        // do we have a variant or only a theme ?
-        if (isset($theme[1])) {
-            $params['html']['theme-variant'] = array_pop($theme);
-            $params['html']['theme'] = implode('-', $theme);
-        } else {
-            $params['html']['theme'] = array_pop($theme);
-        }
-
-        if (!is_dir(realpath($params->getThemesPath() . DIRECTORY_SEPARATOR . $params['html']['theme']))) {
-            throw new \RuntimeException("Theme '{$params['html']['theme']}' not found");
-        }
+        $config['image'] = str_replace('<base_url>', $base_url, $config->getImage());
     }
 
     /**
-     * @param Config $params
+     * @param Config $config
      * @param string $current_url
      * @return array
      */
-    protected static function getTheme(Config $params, $current_url)
+    protected static function getTheme(Config $config, $current_url)
     {
-        self::resolveVariant($params);
+        $htmlTheme = $config->getHTML()->getTheme();
 
-        $theme_folder = $params->getThemesPath() . DIRECTORY_SEPARATOR . $params['html']['theme'];
-        $theme_url = $params['base_url'] . 'themes/' . $params['html']['theme'] . '/';
+        $theme_folder = $config->getThemesPath() . DIRECTORY_SEPARATOR . $htmlTheme;
+        $theme_url = $config->getBaseUrl() . 'themes/' . $htmlTheme . '/';
 
         $theme = [];
         if (is_file($theme_folder . DIRECTORY_SEPARATOR . 'config.json')) {
@@ -71,7 +48,7 @@ class DauxHelper
 
         //Default parameters for theme
         $theme += [
-            'name' => $params['html']['theme'],
+            'name' => $htmlTheme,
             'css' => [],
             'js' => [],
             'fonts' => [],
@@ -80,8 +57,8 @@ class DauxHelper
             'variants' => [],
         ];
 
-        if (array_key_exists('theme-variant', $params['html'])) {
-            $variant = $params['html']['theme-variant'];
+        if ($config->getHTML()->hasThemeVariant()) {
+            $variant = $config->getHTML()->getThemeVariant();
             if (!array_key_exists($variant, $theme['variants'])) {
                 throw new Exception("Variant '$variant' not found for theme '$theme[name]'");
             }
@@ -102,7 +79,7 @@ class DauxHelper
         }
 
         $substitutions = [
-            '<local_base>' => $params['local_base'],
+            '<local_base>' => $config->getLocalBase(),
             '<base_url>' => $current_url,
             '<theme_url>' => $theme_url,
         ];
@@ -154,7 +131,7 @@ class DauxHelper
      */
     public static function getFilenames(Config $config, $part)
     {
-        $extensions = implode('|', array_map('preg_quote', $config['valid_content_extensions'])) . '|html';
+        $extensions = implode('|', array_map('preg_quote', $config->getValidContentExtensions())) . '|html';
 
         $raw = preg_replace('/(.*)?\\.(' . $extensions . ')$/', '$1', $part);
         $raw = Builder::removeSortingInformations($raw);
@@ -189,11 +166,16 @@ class DauxHelper
                 continue;
             }
 
-            $node = DauxHelper::slug(urldecode($node));
-
             // if the node exists in the current request tree,
             // change the $tree variable to reference the new
             // node and proceed to the next url part
+            if (isset($tree->getEntries()[$node])) {
+                $tree = $tree->getEntries()[$node];
+                continue;
+            }
+
+            // We try a second time by decoding the url
+            $node = DauxHelper::slug(urldecode($node));
             if (isset($tree->getEntries()[$node])) {
                 $tree = $tree->getEntries()[$node];
                 continue;
@@ -242,10 +224,12 @@ class DauxHelper
     public static function slug($title)
     {
         // Convert to ASCII
-        foreach (static::charsArray() as $key => $value) {
-            $title = str_replace($value, $key, $title);
+        if (function_exists("transliterator_transliterate")) {
+            $title = transliterator_transliterate("Any-Latin; NFD; [:Nonspacing Mark:] Remove; NFC;", $title);
         }
-
+        
+        $title = iconv("utf-8", "ASCII//TRANSLIT//IGNORE", $title);
+        
         // Remove unsupported characters
         $title = preg_replace('/[^\x20-\x7E]/u', '', $title);
 
@@ -261,146 +245,6 @@ class DauxHelper
         $title = preg_replace('![' . preg_quote($separator) . '\s]+!u', $separator, $title);
 
         return trim($title, $separator);
-    }
-
-    /**
-     * Returns the replacements for the slug() method.
-     *
-     * Taken from Stringy
-     *
-     * @return array An array of replacements.
-     */
-    public static function charsArray()
-    {
-        static $charsArray;
-
-        if (isset($charsArray)) {
-            return $charsArray;
-        }
-
-        return $charsArray = [
-            'a'    => [
-                'à', 'á', 'ả', 'ã', 'ạ', 'ă', 'ắ', 'ằ', 'ẳ', 'ẵ',
-                'ặ', 'â', 'ấ', 'ầ', 'ẩ', 'ẫ', 'ậ', 'ä', 'ā', 'ą',
-                'å', 'α', 'ά', 'ἀ', 'ἁ', 'ἂ', 'ἃ', 'ἄ', 'ἅ', 'ἆ',
-                'ἇ', 'ᾀ', 'ᾁ', 'ᾂ', 'ᾃ', 'ᾄ', 'ᾅ', 'ᾆ', 'ᾇ', 'ὰ',
-                'ά', 'ᾰ', 'ᾱ', 'ᾲ', 'ᾳ', 'ᾴ', 'ᾶ', 'ᾷ', 'а', 'أ', ],
-            'b'    => ['б', 'β', 'Ъ', 'Ь', 'ب'],
-            'c'    => ['ç', 'ć', 'č', 'ĉ', 'ċ'],
-            'd'    => ['ď', 'ð', 'đ', 'ƌ', 'ȡ', 'ɖ', 'ɗ', 'ᵭ', 'ᶁ', 'ᶑ',
-                'д', 'δ', 'د', 'ض', ],
-            'e'    => ['é', 'è', 'ẻ', 'ẽ', 'ẹ', 'ê', 'ế', 'ề', 'ể', 'ễ',
-                'ệ', 'ë', 'ē', 'ę', 'ě', 'ĕ', 'ė', 'ε', 'έ', 'ἐ',
-                'ἑ', 'ἒ', 'ἓ', 'ἔ', 'ἕ', 'ὲ', 'έ', 'е', 'ё', 'э',
-                'є', 'ə', ],
-            'f'    => ['ф', 'φ', 'ف'],
-            'g'    => ['ĝ', 'ğ', 'ġ', 'ģ', 'г', 'ґ', 'γ', 'ج'],
-            'h'    => ['ĥ', 'ħ', 'η', 'ή', 'ح', 'ه'],
-            'i'    => ['í', 'ì', 'ỉ', 'ĩ', 'ị', 'î', 'ï', 'ī', 'ĭ', 'į',
-                'ı', 'ι', 'ί', 'ϊ', 'ΐ', 'ἰ', 'ἱ', 'ἲ', 'ἳ', 'ἴ',
-                'ἵ', 'ἶ', 'ἷ', 'ὶ', 'ί', 'ῐ', 'ῑ', 'ῒ', 'ΐ', 'ῖ',
-                'ῗ', 'і', 'ї', 'и', ],
-            'j'    => ['ĵ', 'ј', 'Ј'],
-            'k'    => ['ķ', 'ĸ', 'к', 'κ', 'Ķ', 'ق', 'ك'],
-            'l'    => ['ł', 'ľ', 'ĺ', 'ļ', 'ŀ', 'л', 'λ', 'ل'],
-            'm'    => ['м', 'μ', 'م'],
-            'n'    => ['ñ', 'ń', 'ň', 'ņ', 'ŉ', 'ŋ', 'ν', 'н', 'ن'],
-            'o'    => ['ó', 'ò', 'ỏ', 'õ', 'ọ', 'ô', 'ố', 'ồ', 'ổ', 'ỗ',
-                'ộ', 'ơ', 'ớ', 'ờ', 'ở', 'ỡ', 'ợ', 'ø', 'ō', 'ő',
-                'ŏ', 'ο', 'ὀ', 'ὁ', 'ὂ', 'ὃ', 'ὄ', 'ὅ', 'ὸ', 'ό',
-                'ö', 'о', 'و', 'θ', ],
-            'p'    => ['п', 'π'],
-            'r'    => ['ŕ', 'ř', 'ŗ', 'р', 'ρ', 'ر'],
-            's'    => ['ś', 'š', 'ş', 'с', 'σ', 'ș', 'ς', 'س', 'ص'],
-            't'    => ['ť', 'ţ', 'т', 'τ', 'ț', 'ت', 'ط'],
-            'u'    => ['ú', 'ù', 'ủ', 'ũ', 'ụ', 'ư', 'ứ', 'ừ', 'ử', 'ữ',
-                'ự', 'ü', 'û', 'ū', 'ů', 'ű', 'ŭ', 'ų', 'µ', 'у', ],
-            'v'    => ['в'],
-            'w'    => ['ŵ', 'ω', 'ώ'],
-            'x'    => ['χ'],
-            'y'    => ['ý', 'ỳ', 'ỷ', 'ỹ', 'ỵ', 'ÿ', 'ŷ', 'й', 'ы', 'υ',
-                'ϋ', 'ύ', 'ΰ', 'ي', ],
-            'z'    => ['ź', 'ž', 'ż', 'з', 'ζ', 'ز'],
-            'aa'   => ['ع'],
-            'ae'   => ['æ'],
-            'ch'   => ['ч'],
-            'dj'   => ['ђ', 'đ'],
-            'dz'   => ['џ'],
-            'gh'   => ['غ'],
-            'kh'   => ['х', 'خ'],
-            'lj'   => ['љ'],
-            'nj'   => ['њ'],
-            'oe'   => ['œ'],
-            'ps'   => ['ψ'],
-            'sh'   => ['ш'],
-            'shch' => ['щ'],
-            'ss'   => ['ß'],
-            'th'   => ['þ', 'ث', 'ذ', 'ظ'],
-            'ts'   => ['ц'],
-            'ya'   => ['я'],
-            'yu'   => ['ю'],
-            'zh'   => ['ж'],
-            '(c)'  => ['©'],
-            'A'    => ['Á', 'À', 'Ả', 'Ã', 'Ạ', 'Ă', 'Ắ', 'Ằ', 'Ẳ', 'Ẵ',
-                'Ặ', 'Â', 'Ấ', 'Ầ', 'Ẩ', 'Ẫ', 'Ậ', 'Ä', 'Å', 'Ā',
-                'Ą', 'Α', 'Ά', 'Ἀ', 'Ἁ', 'Ἂ', 'Ἃ', 'Ἄ', 'Ἅ', 'Ἆ',
-                'Ἇ', 'ᾈ', 'ᾉ', 'ᾊ', 'ᾋ', 'ᾌ', 'ᾍ', 'ᾎ', 'ᾏ', 'Ᾰ',
-                'Ᾱ', 'Ὰ', 'Ά', 'ᾼ', 'А', ],
-            'B'    => ['Б', 'Β'],
-            'C'    => ['Ç', 'Ć', 'Č', 'Ĉ', 'Ċ'],
-            'D'    => ['Ď', 'Ð', 'Đ', 'Ɖ', 'Ɗ', 'Ƌ', 'ᴅ', 'ᴆ', 'Д', 'Δ'],
-            'E'    => ['É', 'È', 'Ẻ', 'Ẽ', 'Ẹ', 'Ê', 'Ế', 'Ề', 'Ể', 'Ễ',
-                'Ệ', 'Ë', 'Ē', 'Ę', 'Ě', 'Ĕ', 'Ė', 'Ε', 'Έ', 'Ἐ',
-                'Ἑ', 'Ἒ', 'Ἓ', 'Ἔ', 'Ἕ', 'Έ', 'Ὲ', 'Е', 'Ё', 'Э',
-                'Є', 'Ə', ],
-            'F'    => ['Ф', 'Φ'],
-            'G'    => ['Ğ', 'Ġ', 'Ģ', 'Г', 'Ґ', 'Γ'],
-            'H'    => ['Η', 'Ή'],
-            'I'    => ['Í', 'Ì', 'Ỉ', 'Ĩ', 'Ị', 'Î', 'Ï', 'Ī', 'Ĭ', 'Į',
-                'İ', 'Ι', 'Ί', 'Ϊ', 'Ἰ', 'Ἱ', 'Ἳ', 'Ἴ', 'Ἵ', 'Ἶ',
-                'Ἷ', 'Ῐ', 'Ῑ', 'Ὶ', 'Ί', 'И', 'І', 'Ї', ],
-            'K'    => ['К', 'Κ'],
-            'L'    => ['Ĺ', 'Ł', 'Л', 'Λ', 'Ļ'],
-            'M'    => ['М', 'Μ'],
-            'N'    => ['Ń', 'Ñ', 'Ň', 'Ņ', 'Ŋ', 'Н', 'Ν'],
-            'O'    => ['Ó', 'Ò', 'Ỏ', 'Õ', 'Ọ', 'Ô', 'Ố', 'Ồ', 'Ổ', 'Ỗ',
-                'Ộ', 'Ơ', 'Ớ', 'Ờ', 'Ở', 'Ỡ', 'Ợ', 'Ö', 'Ø', 'Ō',
-                'Ő', 'Ŏ', 'Ο', 'Ό', 'Ὀ', 'Ὁ', 'Ὂ', 'Ὃ', 'Ὄ', 'Ὅ',
-                'Ὸ', 'Ό', 'О', 'Θ', 'Ө', ],
-            'P'    => ['П', 'Π'],
-            'R'    => ['Ř', 'Ŕ', 'Р', 'Ρ'],
-            'S'    => ['Ş', 'Ŝ', 'Ș', 'Š', 'Ś', 'С', 'Σ'],
-            'T'    => ['Ť', 'Ţ', 'Ŧ', 'Ț', 'Т', 'Τ'],
-            'U'    => ['Ú', 'Ù', 'Ủ', 'Ũ', 'Ụ', 'Ư', 'Ứ', 'Ừ', 'Ử', 'Ữ',
-                'Ự', 'Û', 'Ü', 'Ū', 'Ů', 'Ű', 'Ŭ', 'Ų', 'У', ],
-            'V'    => ['В'],
-            'W'    => ['Ω', 'Ώ'],
-            'X'    => ['Χ'],
-            'Y'    => ['Ý', 'Ỳ', 'Ỷ', 'Ỹ', 'Ỵ', 'Ÿ', 'Ῠ', 'Ῡ', 'Ὺ', 'Ύ',
-                'Ы', 'Й', 'Υ', 'Ϋ', ],
-            'Z'    => ['Ź', 'Ž', 'Ż', 'З', 'Ζ'],
-            'AE'   => ['Æ'],
-            'CH'   => ['Ч'],
-            'DJ'   => ['Ђ'],
-            'DZ'   => ['Џ'],
-            'KH'   => ['Х'],
-            'LJ'   => ['Љ'],
-            'NJ'   => ['Њ'],
-            'PS'   => ['Ψ'],
-            'SH'   => ['Ш'],
-            'SHCH' => ['Щ'],
-            'SS'   => ['ẞ'],
-            'TH'   => ['Þ'],
-            'TS'   => ['Ц'],
-            'YA'   => ['Я'],
-            'YU'   => ['Ю'],
-            'ZH'   => ['Ж'],
-            ' '    => ["\xC2\xA0", "\xE2\x80\x80", "\xE2\x80\x81",
-                "\xE2\x80\x82", "\xE2\x80\x83", "\xE2\x80\x84",
-                "\xE2\x80\x85", "\xE2\x80\x86", "\xE2\x80\x87",
-                "\xE2\x80\x88", "\xE2\x80\x89", "\xE2\x80\x8A",
-                "\xE2\x80\xAF", "\xE2\x81\x9F", "\xE3\x80\x80", ],
-        ];
     }
 
     /**
@@ -480,40 +324,55 @@ class DauxHelper
         return getcwd() . '/' . $path;
     }
 
-    /**
-     * @param string|null $path
-     * @param string $basedir
-     * @param string $var The constant name to check
-     * @param "dir"|"file" $type
-     * @return false|null|string
-     */
-    public static function findLocation($path, $basedir, $var, $type) {
-        // When running through `daux --serve` we set an environment variable to know where we started from
-        $env = getenv($var);
-        if ($env && DauxHelper::is($env, $type)) {
-            return $env;
-        }
-
-        // If Path is explicitly null, it's useless to go further
-        if ($path == null) {
-            return null;
-        }
-
-        // Check if it's relative to the current directory or an absolute path
-        if (DauxHelper::is($path, $type)) {
-            return DauxHelper::getAbsolutePath($path);
-        }
-
-        // Check if it exists relative to Daux's root
-        $newPath = $basedir . DIRECTORY_SEPARATOR . $path;
-        if (DauxHelper::is($newPath, $type)) {
-            return $newPath;
-        }
-
-        return false;
-    }
-
     public static function is($path, $type) {
         return ($type == 'dir') ? is_dir($path) : file_exists($path);
+    }
+
+    /**
+     * @param Config $config
+     * @param string $url
+     * @return Entry
+     * @throws LinkNotFoundException
+     */
+    public static function resolveInternalFile($config, $url)
+    {
+        $triedAbsolute = false;
+
+        // Legacy absolute paths could start with
+        // "!" In this case we will try to find
+        // the file starting at the root
+        if ($url[0] == '!' || $url[0] == '/') {
+            $url = ltrim($url, '!/');
+
+            if ($file = DauxHelper::getFile($config->getTree(), $url)) {
+                return $file;
+            }
+
+            $triedAbsolute = true;
+        }
+
+        // Seems it's not an absolute path or not found,
+        // so we'll continue with the current folder
+        if ($file = DauxHelper::getFile($config->getCurrentPage()->getParent(), $url)) {
+            return $file;
+        }
+
+        // If we didn't already try it, we'll
+        // do a pass starting at the root
+        if (!$triedAbsolute && $file = DauxHelper::getFile($config->getTree(), $url)) {
+            return $file;
+        }
+
+        throw new LinkNotFoundException("Could not locate file '$url'");
+    }
+
+    public static function isValidUrl($url)
+    {
+        return !empty($url) && $url[0] != '#';
+    }
+
+    public static function isExternalUrl($url)
+    {
+        return preg_match('#^(?:[a-z]+:)?//|^mailto:#', $url);
     }
 }

@@ -1,4 +1,4 @@
-FROM composer:1.7.2 AS composer
+FROM composer:1.9.1 AS composer
 
 FROM php:7-stretch
 
@@ -22,7 +22,7 @@ COPY bin/ /daux/bin/
 COPY libs/ /daux/libs/
 COPY templates/ /daux/templates/
 COPY themes/ /daux/themes/
-COPY tipuesearch/ /daux/tipuesearch/
+COPY daux_libraries/ /daux/daux_libraries/
 COPY global.json /daux/global.json
 COPY index.php /daux/index.php
 

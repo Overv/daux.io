@@ -7,7 +7,7 @@
 
 [![Latest Version](https://img.shields.io/github/release/dauxio/daux.io.svg?style=flat-square)](https://github.com/dauxio/daux.io/releases)
 [![Software License](https://img.shields.io/badge/license-MIT-brightgreen.svg?style=flat-square)](https://github.com/dauxio/daux.io/blob/master/LICENSE.md)
-[![Build Status](https://img.shields.io/travis/dauxio/daux.io/master.svg?style=flat-square)](https://travis-ci.org/dauxio/daux.io)
+[![Build Status](https://github.com/dauxio/daux.io/workflows/CI/badge.svg)](https://github.com/dauxio/daux.io/actions)
 [![Coverage Status](https://img.shields.io/scrutinizer/coverage/g/dauxio/daux.io.svg?style=flat-square)](https://scrutinizer-ci.com/g/dauxio/daux.io/code-structure)
 [![Quality Score](https://img.shields.io/scrutinizer/g/dauxio/daux.io.svg?style=flat-square)](https://scrutinizer-ci.com/g/dauxio/daux.io)
 [![Total Downloads](https://img.shields.io/packagist/dt/daux/daux.io.svg?style=flat-square)](https://packagist.org/packages/daux/daux.io)
@@ -43,12 +43,12 @@ This is a list of sites using Daux.io:
 	* [Soisy](https://doc.soisy.it/)
     * [Vulkan Tutorial](https://vulkan-tutorial.com)
 	* [3Q](https://docs.3q.video/)
+    * [The Advanced RSS Environment](https://thearsse.com/manual/)
 - With the default Theme
     * [Daux.io](https://daux.io/)
 	* [DoctrineWatcher](https://dsentker.github.io/WatcherDocumentation/)
 	* [DrupalGap](http://docs.drupalgap.org/8/)
     * [ICADMIN: An admin panel powered by CodeIgniter.](http://istocode.com/shared/ic-admin/)
-    * [Invade & Annex 3 - An Arma 3 Co-operative Mission](http://ia3.ahoyworld.co.uk/)
     * [Munee: Standalone PHP 5.3 Asset Optimisation & Manipulation](http://mun.ee)
     * [Nuntius: A PHP framework for bots](https://roysegall.github.io/nuntius-bot/)
 
@@ -238,7 +238,7 @@ You can then point your browser to http://localhost:8086
 
 ## PHP Requirements
 
-Daux.io is compatible with PHP 7.1.3 and up.
+Daux.io is compatible with PHP 7.2.0 and up.
 
 The reason is because some dependencies we have (mainly Symfony and Guzzle) do not support PHP 5.6 anymore.
 

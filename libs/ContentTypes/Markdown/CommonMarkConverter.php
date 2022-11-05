@@ -3,8 +3,9 @@
 use League\CommonMark\DocParser;
 use League\CommonMark\Environment;
 use League\CommonMark\HtmlRenderer;
+use League\CommonMark\Ext\Table\TableExtension;
+use League\CommonMark\Inline\Element as InlineElement;
 use Todaymade\Daux\Config;
-use Webuni\CommonMark\TableExtension\TableExtension;
 
 class CommonMarkConverter extends \League\CommonMark\CommonMarkConverter
 {
@@ -24,12 +25,11 @@ class CommonMarkConverter extends \League\CommonMark\CommonMarkConverter
 
         $this->extendEnvironment($environment, $config['daux']);
 
-        if (array_key_exists('processor_instance', $config['daux'])) {
-            $config['daux']['processor_instance']->extendCommonMarkEnvironment($environment);
+        if ($config['daux']->hasProcessorInstance()) {
+            $config['daux']->getProcessorInstance()->extendCommonMarkEnvironment($environment);
         }
 
-        $this->docParser = new DocParser($environment);
-        $this->htmlRenderer = new HtmlRenderer($environment);
+        parent::__construct($config, $environment);
     }
 
     protected function getLinkRenderer(Environment $environment)
@@ -39,6 +39,6 @@ class CommonMarkConverter extends \League\CommonMark\CommonMarkConverter
 
     protected function extendEnvironment(Environment $environment, Config $config)
     {
-        $environment->addInlineRenderer('Link', $this->getLinkRenderer($environment));
+        $environment->addInlineRenderer(InlineElement\Link::class, $this->getLinkRenderer($environment));
     }
 }

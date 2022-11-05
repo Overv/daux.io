@@ -4,18 +4,18 @@
     use League\CommonMark\ElementRendererInterface;
     use League\CommonMark\InlineParserContext;
     use League\CommonMark\HtmlElement;
-    use League\CommonMark\Inline\Parser\AbstractInlineParser;
+    use League\CommonMark\Inline\Parser\InlineParserInterface;
     use League\CommonMark\Inline\Renderer\InlineRendererInterface;
     use League\CommonMark\Inline\Element\AbstractInline;
     use League\CommonMark\Inline\Element\Code;
     use League\CommonMark\Util\Xml;
 
-    class VulkanLinkParser extends AbstractInlineParser {
-        public function getCharacters() {
+    class VulkanLinkParser implements InlineParserInterface {
+        public function getCharacters(): array {
             return ['v', 'V'];
         }
 
-        public function parse(InlineParserContext $inlineContext) {
+        public function parse(InlineParserContext $inlineContext): bool {
             $cursor = $inlineContext->getCursor();
 
             // Ensure that 'v' is the first character of this word

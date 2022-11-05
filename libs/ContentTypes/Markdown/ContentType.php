@@ -12,12 +12,23 @@ class ContentType implements \Todaymade\Daux\ContentTypes\ContentType
     protected $config;
 
     /** @var CommonMarkConverter */
-    protected $converter;
+    private $converter;
 
     public function __construct(Config $config)
     {
         $this->config = $config;
-        $this->converter = new CommonMarkConverter(['daux' => $config]);
+    }
+
+    protected function createConverter() {
+        return new CommonMarkConverter(['daux' => $this->config]);
+    }
+
+    protected function getConverter() {
+        if (!$this->converter) {
+            $this->converter = $this->createConverter();
+        }
+
+        return $this->converter;
     }
 
     /**
@@ -31,27 +42,30 @@ class ContentType implements \Todaymade\Daux\ContentTypes\ContentType
     protected function doConversion($raw)
     {
         Daux::writeln("Running conversion", OutputInterface::VERBOSITY_VERBOSE);
-        return $this->converter->convertToHtml($raw);
+        return $this->getConverter()->convertToHtml($raw);
     }
 
     public function convert($raw, Content $node)
     {
         $this->config->setCurrentPage($node);
 
-        if (!$this->config->canCache()) {
-            return $this->doConversion($raw);
-        }
+        $can_cache = $this->config->canCache();
 
         // TODO :: add daux version to cache key
         $cacheKey = $this->config->getCacheKey() . sha1($raw);
 
         $payload = Cache::get($cacheKey);
 
-        if ($payload) {
+        if ($can_cache && $payload) {
             Daux::writeln("Using cached version", OutputInterface::VERBOSITY_VERBOSE);
-        } else {
-            Daux::writeln("Not found in the cache, generating...", OutputInterface::VERBOSITY_VERBOSE);
+        }
+
+        if (!$can_cache || !$payload) {
+            Daux::writeln($can_cache ? "Not found in the cache, generating..." : "Cache disabled, generating...", OutputInterface::VERBOSITY_VERBOSE);
             $payload = $this->doConversion($raw);
+        }
+
+        if ($can_cache) {
             Cache::put($cacheKey, $payload);
         } 
 

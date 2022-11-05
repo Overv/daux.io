@@ -59,7 +59,9 @@ class Builder
      */
     public static function build($node, $ignore)
     {
-        if (($it = new \FilesystemIterator($node->getPath())) == false) {
+        try {
+            $it = new \FilesystemIterator($node->getPath());
+        } catch (\UnexpectedValueException $e) {
             return;
         }
 
@@ -104,7 +106,7 @@ class Builder
 
         $config = $parent->getConfig();
 
-        if (!in_array($file->getExtension(), $config['valid_content_extensions'])) {
+        if (!in_array($file->getExtension(), $config->getValidContentExtensions())) {
             $uri = $file->getFilename();
 
             $entry = new Raw($parent, $uri, $file);
@@ -122,7 +124,7 @@ class Builder
 
         $entry = new Content($parent, $uri, $file);
 
-        if ($entry->getUri() == $config['index_key']) {
+        if ($entry->getUri() == $config->getIndexKey()) {
             if ($parent instanceof Root) {
                 $entry->setTitle($config->getTitle());
             } else {
@@ -184,7 +186,7 @@ class Builder
             $path .= '.md';
         }
 
-        $raw = !in_array($extension, $parent->getConfig()['valid_content_extensions']);
+        $raw = !in_array($extension, $parent->getConfig()->getValidContentExtensions());
 
         $title = $uri = $path;
         if (!$raw) {

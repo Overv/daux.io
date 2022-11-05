@@ -24,11 +24,7 @@
                 <?php
                 $language_pickers = array();
                 foreach($params['languages'] as $lang => $lang_name) {
-                    if ($lang === $params['language']) {
-                        $language_pickers[] = '<a href="/Introduction">' . $lang_name . '</a>';
-                    } else {
-                        $language_pickers[] = '<a href="/' . $lang . '/Introduction">' . $lang_name . '</a>';
-                    }
+                    $language_pickers[] = '<a href="/' . $lang . '">' . $lang_name . '</a>';
                 }
                 echo implode(' / ', $language_pickers);
                 ?>

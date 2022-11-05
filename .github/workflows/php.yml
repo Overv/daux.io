@@ -1,0 +1,73 @@
+name: CI
+
+on: [push]
+
+jobs:
+  build:
+    strategy:
+      max-parallel: 15
+      matrix:
+        # TODO : enable tests on windows
+        operating-system: [ubuntu-latest, macOS-latest]
+        php-versions: ['7.2', '7.3', '7.4']
+        exclude:
+          - operating-system: macos-latest
+            php-versions: 7.4
+
+    name: PHP ${{ matrix.php-versions }} Test on ${{ matrix.operating-system }}
+    runs-on: ${{ matrix.operating-system }}
+
+    steps:
+    - uses: actions/checkout@v1
+
+    - name: Setup PHP
+      uses: shivammathur/setup-php@master
+      with:
+        php-version: ${{ matrix.php-versions }}
+        extension-csv: mbstring, dom, intl
+
+    - name: Validate composer.json and composer.lock
+      run: composer validate
+
+    - name: Install dependencies
+      run: composer install --prefer-dist --no-progress --no-suggest
+
+    - name: Run test suite
+      run: composer run-script test
+
+  scrutinizer-ci:
+    runs-on: ubuntu-latest
+    if: github.event_name != 'pull_request'
+    steps:
+    - uses: actions/checkout@v1
+    - name: Setup PHP
+      uses: shivammathur/setup-php@master
+      with:
+        php-version: 7.4
+        extension-csv: mbstring, xdebug, dom, intl
+        coverage: xdebug
+
+    - name: Install dependencies
+      run: composer install --prefer-dist --no-progress --no-suggest
+
+    - name: Run test suite
+      run: composer run-script test -- --coverage-clover=coverage.clover
+
+    - run: wget https://scrutinizer-ci.com/ocular.phar
+    - name: Upload code coverage
+      run: php ocular.phar code-coverage:upload --format=php-clover coverage.clover
+
+  documentation:
+    runs-on: ubuntu-latest
+    if: github.repository == 'dauxio/daux.io' && github.event_name != 'pull_request' && github.ref == 'refs/heads/master'
+    steps:
+    - uses: actions/checkout@v1
+    - name: Install dependencies
+      run: composer install --prefer-dist --no-progress --no-suggest
+    - name: Generate documentation
+      run: bin/daux generate
+    - uses: JamesIves/github-pages-deploy-action@2.0.3
+      env:
+        FOLDER: "static"
+        BRANCH: gh-pages
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

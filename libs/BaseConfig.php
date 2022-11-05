@@ -15,7 +15,7 @@ class BaseConfig extends ArrayObject
         foreach ($newValues as $key => $value) {
             // If the key doesn't exist yet,
             // we can simply set it.
-            if (!array_key_exists($key, $this)) {
+            if (!array_key_exists($key, /** @scrutinizer ignore-type */ $this)) {
                 $this[$key] = $value;
                 continue;
             }
@@ -35,5 +35,20 @@ class BaseConfig extends ArrayObject
                 $this[$key] = $value;
             }
         }
+    }
+
+    public function hasValue($key)
+    {
+        return array_key_exists($key, /** @scrutinizer ignore-type */ $this);
+    }
+
+    public function getValue($key)
+    {
+        return $this[$key];
+    }
+
+    public function setValue($key, $value)
+    {
+        $this[$key] = $value;
     }
 }
