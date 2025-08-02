@@ -11,7 +11,7 @@ RUN python3 build_ebook.py
 
 FROM composer:1.7.2 AS composer
 
-FROM php:7-stretch
+FROM php:7-bullseye
 
 RUN apt-get update && apt-get install -y libicu-dev git unzip
 RUN docker-php-ext-configure intl \
